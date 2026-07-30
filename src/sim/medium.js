@@ -118,8 +118,19 @@ void main() {
   float structure = V * (1.0 - V) * 4.0;   // peaks at the interfaces, not the bulk
   commit = min(1.0, commit + structure * uDt * 0.00008);
 
-  // Scar heals, slowly and never completely.
-  scar = max(0.0, scar - uDt * 0.00035 * (1.0 - scar * 0.5));
+  // Scar heals, slowly, and never completely.
+  //
+  // The rate matters more than it looks. At the first value tried, a bleached
+  // disc had vanished within three minutes — which quietly refunded the price of
+  // every probe and removed the reason to hesitate before taking one. The cost
+  // of looking has to still be on the dish at the assay, or the central decision
+  // is free and the game is about nothing.
+  //
+  // The floor is the honest part: tissue that was destroyed does not come back,
+  // it is only grown over. Roughly a sixth of the damage fades across a full
+  // session; the rest is in the final score.
+  float healable = max(0.0, scar - 0.55 * scar);
+  scar = scar - min(healable, uDt * 0.000006);
 
   frag = vec4(U, V, scar, commit);
 }`;
@@ -154,8 +165,22 @@ void main() {
 
   if (a <= 0.0001) { frag = src; return; }
 
-  if (uMode == 0) {          // nutrient: raise feed rate
-    src.r = clamp(src.r + a * 0.010, 0.0, 0.11);
+  // Nutrient lowers the kill rate; shade raises it.
+  //
+  // This is the opposite of the obvious mapping and it was found by measuring
+  // the medium rather than by reasoning about it. Raising the feed rate — the
+  // intuitive "more food" — actually *kills* this culture: at the constants the
+  // coral strain lives at, higher F leaves the pattern-forming region and the
+  // dish relaxes to sterile uniform substrate. A sweep of the response surface
+  // put the authority almost entirely in K, and steeply: -0.004 multiplies
+  // coverage more than fivefold, +0.004 sterilises the dish completely.
+  //
+  // The steepness is why the per-application delta is small. The player is
+  // holding a control with enormous authority and it has to feel like leaning on
+  // something, not like flipping a switch.
+  if (uMode == 0) {          // nutrient: enrich, lower kill rate
+    src.g = clamp(src.g - a * 0.0018, 0.030, 0.075);
+    src.r = clamp(src.r - a * 0.0015, 0.004, 0.11);
   } else if (uMode == 1) {   // thermal: raise local rate
     src.b = clamp(src.b + a, 0.0, 1.0);
   } else if (uMode == 2) {   // shear: mark for advection
@@ -170,6 +195,16 @@ void main() {
   } else if (uMode == 5) {   // seed
     src.g = min(1.0, src.g + a);
     src.r = max(0.0, src.r - a * 0.5);
+  } else if (uMode == 6) {   // shade: starve, retract the front
+    // Retraction is the verb the scoring demands. The shape score is an
+    // intersection over union, so it punishes sprawl as hard as it punishes
+    // shortfall — and a player who can only ever add is being marked on
+    // something they have no control over.
+    // Stronger per application than nutrient, because it is working against
+    // structure that already exists. Established growth resists being pushed
+    // back in a way that empty substrate does not resist being filled, and
+    // matching the two numbers left retraction almost useless in practice.
+    src.g = clamp(src.g + a * 0.0034, 0.030, 0.075);
   }
 
   frag = src;
@@ -316,8 +351,28 @@ export class Medium {
     }
   }
 
-  /** Relax actuator fields back toward the strain's own constants. */
-  decayParams(thermalDecay = 0.965, shearDecay = 0.90, ret = 0.06) {
+  /**
+   * Relax actuator fields back toward the strain's own constants.
+   *
+   * Rates are time constants in seconds, not per-call factors. The first version
+   * used per-call factors and was called once per 120 Hz tick, which gave
+   * enrichment a half-life of about a tenth of a second: everything the player
+   * did evaporated before the chemistry could respond to it, and every play
+   * policy scored identically because none of them were really doing anything.
+   *
+   * The three channels decay at deliberately different rates, and the difference
+   * is most of what distinguishes the actuators from each other. Enrichment is
+   * something you have changed about the medium and it persists. Heat is
+   * something you are doing to it and stops when you stop. Shear is an event.
+   */
+  decayParams(dt = 1 / 120, { enrichTau = 30, thermalTau = 2.5, shearTau = 0.4 } = {}) {
+    const thermalDecay = Math.exp(-dt / thermalTau);
+    const shearDecay = Math.exp(-dt / shearTau);
+    const ret = 1 - Math.exp(-dt / enrichTau);
+    return this._decay(thermalDecay, shearDecay, ret);
+  }
+
+  _decay(thermalDecay, shearDecay, ret) {
     const gl = this.gl;
     const src = this.params[this.paramFront];
     const dst = this.params[1 - this.paramFront];
@@ -406,6 +461,87 @@ export class Medium {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, this.size, this.size, 0, gl.RGBA, gl.FLOAT, data);
     }
     this.front = 0;
+  }
+
+  /**
+   * Downsample the field to a small grid of statistics, and read it back.
+   *
+   * The audio channel needs the field's shape several times a second, and
+   * reading 512x512 floats back per frame is four megabytes across the bus and a
+   * full pipeline stall. Reducing on the GPU first and reading back a 16x16 tile
+   * costs four kilobytes, which is cheap enough to do continuously.
+   *
+   * Each output texel carries, for its tile: mean V, interface density
+   * (V*(1-V), which peaks at boundaries rather than in the bulk), mean
+   * commitment, and mean scar. Those four are exactly what the hum is built
+   * from, and what scoring needs.
+   */
+  reduceStats(out) {
+    const gl = this.gl;
+    if (!this.statsProgram) {
+      this.statsProgram = createProgram(gl, FULLSCREEN_VS, `#version 300 es
+        precision highp float;
+        uniform sampler2D uState;
+        uniform int uTile;
+        uniform vec2 uTexel;
+        in vec2 vUv;
+        out vec4 frag;
+        void main() {
+          vec4 acc = vec4(0.0);
+          float n = 0.0;
+          for (int y = 0; y < 32; y++) {
+            if (y >= uTile) break;
+            for (int x = 0; x < 32; x++) {
+              if (x >= uTile) break;
+              vec2 uv = vUv + (vec2(float(x), float(y)) - float(uTile) * 0.5) * uTexel;
+              vec4 s = texture(uState, uv);
+              acc.r += s.g;                    // mass
+              acc.g += s.g * (1.0 - s.g) * 4.0; // interface
+              acc.b += s.a;                    // commitment
+              acc.a += s.b;                    // scar
+              n += 1.0;
+            }
+          }
+          frag = acc / max(n, 1.0);
+        }`, 'medium-stats');
+      this.statsSize = 16;
+      this.statsTarget = null;
+    }
+    if (!this.statsTarget) {
+      const size = this.statsSize;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, size, size, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.statsTarget = { tex, fbo };
+    }
+
+    const tile = Math.min(32, Math.floor(this.size / this.statsSize));
+    gl.useProgram(this.statsProgram.program);
+    gl.uniform1i(this.statsProgram.uniforms.uState, 0);
+    gl.uniform1i(this.statsProgram.uniforms.uTile, tile);
+    gl.uniform2f(this.statsProgram.uniforms.uTexel, 1 / this.size, 1 / this.size);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.state[this.front].tex);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.statsTarget.fbo);
+    gl.viewport(0, 0, this.statsSize, this.statsSize);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(this.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    const n = this.statsSize * this.statsSize * 4;
+    const buf = out && out.length >= n ? out : new Float32Array(n);
+    gl.readPixels(0, 0, this.statsSize, this.statsSize, gl.RGBA, gl.FLOAT, buf);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return buf;
   }
 
   /** Read the whole state back. Expensive — for analysis and scoring only. */

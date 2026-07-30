@@ -169,6 +169,12 @@ export class Strain {
       data[i * 4 + 3] = 0;  // commitment
     }
 
+    // Remembered, because the target has to be built in relation to them.
+    // A target placed independently of where the culture starts is frequently
+    // unreachable in the time available, and an unreachable target does not read
+    // as difficulty — it reads as the controls not working.
+    this.seedPoints = [];
+
     const r = this.rng.fork(7);
     for (let s = 0; s < seeds; s++) {
       // Seeds are placed within the inner dish, never against the rim, where
@@ -178,6 +184,7 @@ export class Strain {
       const cx = 0.5 + Math.cos(angle) * dist;
       const cy = 0.5 + Math.sin(angle) * dist;
       const rad = radius * lerp(0.7, 1.3, r.float());
+      this.seedPoints.push({ x: cx, y: cy, r: rad });
 
       const x0 = Math.max(0, Math.floor((cx - rad) * n));
       const x1 = Math.min(n - 1, Math.ceil((cx + rad) * n));

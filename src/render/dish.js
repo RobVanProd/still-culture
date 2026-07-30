@@ -24,6 +24,8 @@ uniform float uExposure;
 uniform float uReveal;       // 0..1 fluorescence overlay strength
 uniform vec2  uRevealAt;
 uniform float uRevealRadius;
+uniform sampler2D uTarget;   // R = wanted (0 or 1)
+uniform float uTargetShow;
 
 in vec2 vUv;
 out vec4 frag;
@@ -105,6 +107,23 @@ void main() {
     col += vec3(0.2, 1.0, 0.6) * edge * uReveal * 0.8;
   }
 
+  // ---- the target stencil -------------------------------------------------
+  // Drawn as an engraved outline on the glass rather than as an overlay on the
+  // culture. It is a mark on the dish the player is working toward, not a
+  // heads-up display element, and it must never be mistaken for something the
+  // medium is doing.
+  if (uTargetShow > 0.001) {
+    float tc = texture(uTarget, uv).r;
+    float tl = texture(uTarget, uv - vec2(uTexel.x, 0.0) * 2.0).r;
+    float tr = texture(uTarget, uv + vec2(uTexel.x, 0.0) * 2.0).r;
+    float td = texture(uTarget, uv - vec2(0.0, uTexel.y) * 2.0).r;
+    float tu = texture(uTarget, uv + vec2(0.0, uTexel.y) * 2.0).r;
+    float edge = abs(tl - tr) + abs(td - tu);
+    col += vec3(0.30, 0.40, 0.52) * edge * uTargetShow * 0.85;
+    // A very faint fill, so the region reads as an area and not only a line.
+    col += vec3(0.020, 0.030, 0.045) * tc * uTargetShow;
+  }
+
   col *= inDish;
 
   // Glass beyond the rim.
@@ -133,6 +152,21 @@ export class DishRenderer {
     this.reveal = 0;
     this.revealAt = [0.5, 0.5];
     this.revealRadius = 0.12;
+    this.targetShow = 1.0;
+    this.targetTex = null;
+  }
+
+  /** Upload the target stencil as a single-channel texture. */
+  setTarget(mask, size) {
+    const gl = this.gl;
+    if (!this.targetTex) this.targetTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.targetTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, size, size, 0, gl.RED, gl.UNSIGNED_BYTE, mask);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
 
   draw(medium, { width, height, time }) {
@@ -156,6 +190,13 @@ export class DishRenderer {
     gl.uniform1f(u.uReveal, this.reveal);
     gl.uniform2f(u.uRevealAt, this.revealAt[0], this.revealAt[1]);
     gl.uniform1f(u.uRevealRadius, this.revealRadius);
+
+    gl.uniform1i(u.uTarget, 2);
+    gl.uniform1f(u.uTargetShow, this.targetTex ? this.targetShow : 0);
+    if (this.targetTex) {
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.targetTex);
+    }
 
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
