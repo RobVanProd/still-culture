@@ -1,71 +1,53 @@
-// Bootstrap.
+// STILL CULTURE — bootstrap.
 //
-// Phase 0 placeholder: this exists to prove the whole pipeline end to end —
-// context creation, shader compilation, the fixed-timestep loop, input, frame
-// timing, and the on-screen diagnostics an agent needs in order to verify the
-// game from a screenshot. It draws nothing that will survive into the game.
+// Phase 2: proving the core loop. Placeholder presentation, real simulation.
 
-import { createContext, createProgram, createFullscreenVao, resizeToDisplay, FULLSCREEN_VS } from './core/gl.js';
+import { createContext, resizeToDisplay } from './core/gl.js';
 import { Loop } from './core/loop.js';
 import { Input } from './core/input.js';
-import { Rng, seedFrom } from './core/rng.js';
+import { Medium } from './sim/medium.js';
+import { Strain } from './sim/strain.js';
+import { DishRenderer } from './render/dish.js';
 
 const canvas = document.getElementById('gl');
 const hudEl = document.getElementById('hud');
 const gl = createContext(canvas);
 
 const input = new Input(canvas);
-const rng = new Rng(seedFrom('phase-0-baseline'));
+const medium = new Medium(gl, 512);
+const dish = new DishRenderer(gl);
 
-// A deliberately simple shader: enough to confirm the fragment stage runs, that
-// uniforms arrive, and that time is advancing, and nothing more.
-const shader = createProgram(gl, FULLSCREEN_VS, `#version 300 es
-precision highp float;
-in vec2 vUv;
-uniform vec2  uRes;
-uniform float uTime;
-uniform vec2  uPoint;
-out vec4 frag;
+let strain = null;
 
-void main() {
-  vec2 uv = vUv;
-  vec2 p = (uv * 2.0 - 1.0) * vec2(uRes.x / uRes.y, 1.0);
+function newDish(seedName = 'dish-001', regime = 'coral') {
+  strain = new Strain(seedName, { size: medium.size, regime });
+  strain.applyTo(medium);
+  loop.tick = 0;
+  loop.simTime = 0;
+}
 
-  // Slow field, so a screenshot taken at a known sim time is reproducible.
-  float d = length(p - uPoint);
-  float ring = smoothstep(0.012, 0.0, abs(d - 0.35 - 0.05 * sin(uTime * 0.7)));
-  float glow = 0.06 / (d * d + 0.05);
-
-  vec3 col = vec3(0.02, 0.03, 0.05);
-  col += vec3(0.25, 0.55, 0.95) * glow * 0.35;
-  col += vec3(0.55, 0.85, 1.00) * ring;
-
-  // Grid, to make resolution and aspect obvious at a glance in a screenshot.
-  vec2 g = abs(fract(p * 4.0) - 0.5);
-  col += vec3(0.06, 0.08, 0.12) * smoothstep(0.48, 0.5, max(g.x, g.y));
-
-  frag = vec4(pow(col, vec3(0.4545)), 1.0);
-}`, 'phase0');
-
-const vao = createFullscreenVao(gl);
-
-const state = {
-  point: { x: 0, y: 0 },
-  target: { x: 0, y: 0 },
-};
+// How fast the chemistry runs, in reaction substeps per second of real time.
+//
+// Decoupled from the tick rate on purpose. The simulation ticks at 120 Hz for
+// input and interpolation reasons that have nothing to do with chemistry, and
+// the reaction wants to be far slower than that: at 960 substeps a second the
+// dish fills in about five seconds, which is a screensaver on fast-forward. At
+// 40 it fills in roughly five minutes, which is a thing you can watch, form a
+// theory about, and be wrong about in time to matter.
+const SUBSTEPS_PER_SECOND = 40;
+let stepAccum = 0;
 
 function update(dt) {
-  // Mouse steers a lagged point, which is enough to confirm input latency is
-  // sane by eye and in a capture.
-  state.target.x = input.mouse.x * 1.2;
-  state.target.y = input.mouse.y * 1.2;
-  const k = 1 - Math.exp(-6 * dt);
-  state.point.x += (state.target.x - state.point.x) * k;
-  state.point.y += (state.target.y - state.point.y) * k;
+  stepAccum += dt * SUBSTEPS_PER_SECOND;
+  const n = Math.floor(stepAccum);
+  if (n > 0) {
+    stepAccum -= n;
+    medium.step(Math.min(n, 8));
+  }
+  medium.decayParams();
   input.endFrame();
 }
 
-/** When set, render() uses this size instead of the element's. Capture only. */
 let forcedSize = null;
 
 function render() {
@@ -74,101 +56,89 @@ function render() {
       canvas.width = forcedSize[0];
       canvas.height = forcedSize[1];
     }
-    gl.viewport(0, 0, canvas.width, canvas.height);
   } else {
     resizeToDisplay(gl, canvas);
   }
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.disable(gl.DEPTH_TEST);
-  gl.useProgram(shader.program);
-  gl.uniform2f(shader.uniforms.uRes, canvas.width, canvas.height);
-  gl.uniform1f(shader.uniforms.uTime, loop.simTime);
-  gl.uniform2f(shader.uniforms.uPoint, state.point.x, state.point.y);
-  gl.bindVertexArray(vao);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  dish.draw(medium, { width: canvas.width, height: canvas.height, time: loop.simTime });
 }
 
 const loop = new Loop({ hz: 120, update, render });
 
-// ---------------------------------------------------------------------------
-// Diagnostics
-//
-// Exposed on window so the harness driving the browser can read real numbers
-// instead of trying to infer them from a picture.
-// ---------------------------------------------------------------------------
 let hudTimer = 0;
-const origRender = loop.render;
+const baseRender = loop.render;
 loop.render = (alpha, frameMs) => {
-  origRender(alpha, frameMs);
+  baseRender(alpha, frameMs);
   hudTimer += frameMs;
   if (hudTimer < 250) return;
   hudTimer = 0;
   const s = loop.perf.stats();
   const v = loop.perf.violations();
   hudEl.innerHTML =
-    `<b>novel-game</b>  phase 0 harness\n` +
-    `${canvas.width}x${canvas.height}  dpr ${Math.min(devicePixelRatio || 1, 2).toFixed(2)}\n` +
-    `fps ${s.fps.toFixed(0)}   med ${s.median.toFixed(2)}ms  p95 ${s.p95.toFixed(2)}  p99 ${s.p99.toFixed(2)}\n` +
-    `worst ${s.worst.toFixed(1)}ms  hitches ${s.hitches}  frames ${s.frames}\n` +
-    `sim ${loop.simTime.toFixed(2)}s  tick ${loop.tick}\n` +
+    `<b>STILL CULTURE</b>  phase 2 prototype\n` +
+    `${canvas.width}x${canvas.height}  sim ${medium.size}^2\n` +
+    `fps ${s.fps.toFixed(0)}  med ${s.median.toFixed(2)}ms  p95 ${s.p95.toFixed(2)}  p99 ${s.p99.toFixed(2)}\n` +
+    `worst ${s.worst.toFixed(1)}ms  hitches ${s.hitches}\n` +
+    `t ${loop.simTime.toFixed(1)}s\n` +
     (v.length ? `<span class="bad">BUDGET: ${v.join('; ')}</span>` : `budget ok`);
 };
 
+newDish('dish-001', 'coral');
+
 globalThis.GAME = {
-  loop, input, gl, canvas, rng,
+  loop, input, gl, canvas, medium, dish,
+  get strain() { return strain; },
+  newDish,
   stats: () => loop.perf.stats(),
   violations: () => loop.perf.violations(),
-  /** Run the sim to an exact time with no rendering — the basis of a
-   *  deterministic capture. */
+
   seek(seconds) {
     const steps = Math.round(seconds / loop.stepSec) - loop.tick;
     if (steps > 0) loop.stepHeadless(steps);
     return loop.simTime;
   },
+
   hud(on) { hudEl.classList.toggle('hidden', !on); },
 
-  /**
-   * Deterministic screenshot, written to evidence/ on the server.
-   *
-   * This is the project's eyes. The page is usually not composited while it is
-   * being developed, so requestAnimationFrame does not run and a normal
-   * screenshot is impossible — but an explicit render into a preserved drawing
-   * buffer works regardless, and the result can be posted back to disk and read
-   * as a file. Every visual claim in this repository is checked this way.
-   *
-   * Deterministic because the simulation is seeked to an exact time by whole
-   * fixed steps: the same name and time always produce the same image, so two
-   * captures can be compared byte for byte to detect a regression.
-   */
-  async capture({ name = 'capture.png', width = 1600, height = 900, at = null } = {}) {
+  async capture({ name = 'capture.png', width = 1200, height = 1200, at = null } = {}) {
     const wasRunning = loop.running;
     loop.stop();
     if (at !== null) this.seek(at);
-
     forcedSize = [width, height];
     loop.render(1, 16.7);
-    // The draw is queued, not done. Force completion before reading back, or the
-    // capture races the GPU and returns the previous frame.
     gl.finish();
-
     const dataUrl = canvas.toDataURL('image/png');
     forcedSize = null;
-
-    const res = await fetch(`/__evidence/${encodeURIComponent(name)}`, {
-      method: 'POST',
-      body: dataUrl,
-    });
+    const res = await fetch(`/__evidence/${encodeURIComponent(name)}`, { method: 'POST', body: dataUrl });
     const out = await res.json();
     if (wasRunning) loop.start();
     return out;
+  },
+
+  /** Field statistics — the basis of the audio channel and of scoring. */
+  measure() {
+    const buf = medium.readState();
+    let mass = 0, scar = 0, commit = 0, interfaces = 0, live = 0;
+    const n = medium.size;
+    for (let i = 0; i < n * n; i++) {
+      const V = buf[i * 4 + 1];
+      mass += V;
+      scar += buf[i * 4 + 2];
+      commit += buf[i * 4 + 3];
+      if (V > 0.05) live++;
+      interfaces += V * (1 - V);
+    }
+    const total = n * n;
+    return {
+      mass: mass / total,
+      scar: scar / total,
+      commit: commit / total,
+      coverage: live / total,
+      interface: (interfaces * 4) / total,
+    };
   },
 
   ready: true,
 };
 
 loop.start();
-console.log('[novel-game] phase 0 harness running', {
-  renderer: gl.getParameter(gl.RENDERER),
-  vendor: gl.getParameter(gl.VENDOR),
-  glsl: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-});
+console.log('[still-culture] prototype running', { strain: strain.describe() });
