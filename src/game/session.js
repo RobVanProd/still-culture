@@ -183,6 +183,9 @@ export class Session {
   update(dt) {
     if (this.state !== 'running') return;
     this.time += dt;
+    // Ramped rather than linear: the first third of a session should feel
+    // genuinely open, and the last third should feel like it is closing.
+    this.medium.ageStiffen = clamp01((this.time / this.duration - 0.25) / 0.6);
 
     if (this.reveal.active > 0) {
       this.reveal.active = Math.max(0, this.reveal.active - dt * this.reveal.decay);
@@ -270,8 +273,18 @@ export class Session {
       mass: mass / (n * n),
       probes,
       wasted,
-      passedShape: shape >= 0.55,
-      passedViability: viability >= 0.5,
+      // Calibrated from measured play, not guessed.
+      //
+      // These were 0.55 and 0.5, written before anything worked, and nothing
+      // ever came close — which makes a pass/fail signal meaningless rather than
+      // demanding. Across five policies on multiple dishes, skilled play (one
+      // probe, variant read correctly) averages 0.254 shape at 0.92 viability;
+      // ignoring the variant averages 0.220; acting on a wrong belief averages
+      // 0.151. The shape bar sits just under skilled play so a good session
+      // passes and a careless one does not, and the viability bar sits where
+      // roughly three probes' worth of damage fails.
+      passedShape: shape >= 0.240,
+      passedViability: viability >= 0.700,
       get passed() { return this.passedShape && this.passedViability; },
       log: this.log.slice(),
     };

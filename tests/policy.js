@@ -46,6 +46,11 @@ function runPolicy(GAME, seedName, policy, { duration = 600, regime = 'coral' } 
     for (let s = 0; s < substeps; s += 8) g.medium.step(Math.min(8, substeps - s));
     g.medium.decayParams(SLICE);
     session.time += SLICE;
+    // The harness advances time by hand rather than through Session.update, so
+    // anything Session.update drives has to be driven here too. Substrate ageing
+    // was silently absent the first time this was run, and the stall policy was
+    // measured against a dish that never got old.
+    g.medium.ageStiffen = Math.max(0, Math.min(1, (session.time / duration - 0.25) / 0.6));
     if (session.time >= duration) break;
   }
 

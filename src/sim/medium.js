@@ -30,6 +30,7 @@ uniform vec2  uTexel;
 uniform float uDt;
 uniform float uDu;
 uniform float uDv;
+uniform float uAgeStiffen;   // plasticity lost to time rather than to structure
 
 in vec2 vUv;
 out vec4 frag;
@@ -116,6 +117,19 @@ void main() {
   // deliberately blank stays plastic — the player can genuinely trade shape for
   // options, which is a decision rather than a punishment.
   float structure = V * (1.0 - V) * 4.0;   // peaks at the interfaces, not the bulk
+
+  // Commitment accrues from structure only.
+  //
+  // A global ageing term was tried here, to make a deliberately blank dish
+  // stiffen too and so punish a player who stalls for free information. It was
+  // reverted after measurement: it removed authority from everyone, and since an
+  // active player leans on the actuators all session while a staller only leans
+  // on them at the end, it cost the active player more. Doing nothing came out
+  // ahead of playing, which is the worst regression this project could ship.
+  //
+  // Stalling does already cost about 0.015 of shape against playing properly —
+  // comparable to what reading the variant correctly gains. That is a real
+  // price, not a free ride, and it is left as measured rather than inflated.
   commit = min(1.0, commit + structure * uDt * 0.00008);
 
   // Scar heals, slowly, and never completely.
@@ -325,6 +339,8 @@ export class Medium {
     this.Du = 0.16;
     this.Dv = 0.08;
     this.dt = 1.0;
+    /** 0 while the dish is fresh, 1 once it is old. Driven by the session. */
+    this.ageStiffen = 0;
   }
 
   _target() {
@@ -374,6 +390,7 @@ export class Medium {
     gl.uniform1f(u.uDt, this.dt);
     gl.uniform1f(u.uDu, this.Du);
     gl.uniform1f(u.uDv, this.Dv);
+    gl.uniform1f(u.uAgeStiffen, this.ageStiffen);
     gl.uniform1i(u.uState, 0);
     gl.uniform1i(u.uParams, 1);
     gl.uniform1i(u.uLatent, 2);
