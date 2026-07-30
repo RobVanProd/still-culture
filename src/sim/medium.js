@@ -143,6 +143,7 @@ precision highp float;
 
 uniform sampler2D uSrc;
 uniform sampler2D uState;   // for commitment, which limits actuator authority
+uniform sampler2D uLatentBrush; // the hidden variant, which inverts enrichment
 uniform vec2  uCenter;      // in uv space
 uniform float uInner;       // annulus inner radius (0 for a disc)
 uniform float uOuter;
@@ -178,9 +179,29 @@ void main() {
   // remain slightly movable, or a player who reads the dish correctly but a
   // little too late is handed a region they can do literally nothing with, and
   // that reads as the game having stopped working rather than as a lesson.
+  float invert = 1.0;
   if (uMode == 0 || uMode == 6) {
     float commit = texture(uState, vUv).a;
     a *= mix(1.0, 0.15, clamp(commit, 0.0, 1.0));
+
+    // The variant inverts what the enrichment does.
+    //
+    // This is the repair for the design's central failure. Previously the hidden
+    // variant only changed *where* the correct action was needed, and a player
+    // shown the target stencil could deduce that from the stencil alone — so
+    // knowing the strain could not change a decision, and a policy handed the
+    // answer for free scored worse than one that ignored it.
+    //
+    // Here the carrying region metabolises the enrichment the other way round:
+    // feeding it starves it. The same input, on the same visible lobe, helps or
+    // harms according to a fact no amount of staring at the stencil can supply.
+    // That is what makes an instrument worth its price.
+    //
+    // It is discoverable for free — apply nutrient and watch the lobe retreat —
+    // but only after the medium has had time to answer, which is the forty
+    // seconds the probe is really buying.
+    float dK = texture(uLatentBrush, vUv).r;
+    if (abs(dK) > 0.0005) invert = sign(dK) > 0.0 ? -1.0 : 1.0;
   }
 
   // Nutrient lowers the kill rate; shade raises it.
@@ -197,8 +218,8 @@ void main() {
   // holding a control with enormous authority and it has to feel like leaning on
   // something, not like flipping a switch.
   if (uMode == 0) {          // nutrient: enrich, lower kill rate
-    src.g = clamp(src.g - a * 0.0018, 0.030, 0.075);
-    src.r = clamp(src.r - a * 0.0015, 0.004, 0.11);
+    src.g = clamp(src.g - invert * a * 0.0018, 0.030, 0.075);
+    src.r = clamp(src.r - invert * a * 0.0015, 0.004, 0.11);
   } else if (uMode == 1) {   // thermal: raise local rate
     src.b = clamp(src.b + a, 0.0, 1.0);
   } else if (uMode == 2) {   // shear: mark for advection
@@ -222,7 +243,7 @@ void main() {
     // structure that already exists. Established growth resists being pushed
     // back in a way that empty substrate does not resist being filled, and
     // matching the two numbers left retraction almost useless in practice.
-    src.g = clamp(src.g + a * 0.0034, 0.030, 0.075);
+    src.g = clamp(src.g + invert * a * 0.0034, 0.030, 0.075);
   }
 
   frag = src;
@@ -428,8 +449,10 @@ export class Medium {
     gl.uniform1f(u.uAspect, 1.0);
     gl.uniform1i(u.uSrc, 0);
     gl.uniform1i(u.uState, 1);
+    gl.uniform1i(u.uLatentBrush, 2);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.state[this.front].tex);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.latent.tex);
 
     this._bindDraw(dst);
     this._draw();

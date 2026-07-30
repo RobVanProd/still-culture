@@ -32,37 +32,48 @@ being a game.
 
 ## What is not working
 
-### 1. Knowing is worse than not knowing — the central claim is currently false
+### 1. RESOLVED — knowing now beats not knowing
 
-| Policy | Shape |
-|---|---|
-| blind — ignores the variant entirely | **0.255** |
-| informed — handed the variant free, plays it | **0.198** |
-| guessing — assumes the wrong variant | 0.191 |
+This section previously recorded the central claim as false. It has since been
+repaired and the repair is worth keeping on the record.
 
-`informed` is given for free exactly what a probe is supposed to buy, and it
-still loses. The concept's thesis — that the decision to look is the game — does
-not hold in this build.
+The failure: `informed` (handed the variant for free) scored **0.198** against
+`blind`'s **0.255**. Knowing the answer made play *worse*.
 
-**Root cause, and it is structural rather than a tuning value:** the player is
-shown the stencil they are scored against. If you know the shape you want, the
-correct action at every point is deducible from the shape alone. The strain
-cannot matter, because the target already told you what to do. Every probe is
-spending substrate to learn something that cannot change a decision.
+The root cause was structural. The player is shown the stencil they are scored
+against, so the correct action at every point was deducible from the shape alone
+and the strain could not matter. Both critics predicted the probe would be
+dominated; neither predicted it would be dominated by *the objective function*.
 
-Both critics predicted the probe would be dominated. Neither predicted it would
-be dominated by *the objective function*.
+The repair: the variant now inverts what enrichment **does**, not merely where it
+is needed. A carrying region metabolises the enrichment backwards — feeding it
+starves it — so the same input on the same visible lobe helps or harms according
+to a fact no amount of staring at the target can supply.
 
-### 2. Stalling is nearly free
+| Policy | Shape | Probes | Viability |
+|---|---|---|---|
+| informed — one probe, plays the variant | **0.235** | 1 | 0.919 |
+| blind — ignores the variant | 0.215 | 0 | 1.000 |
+| guessing — acts on the wrong belief | **0.163** | 0 | 1.000 |
 
-`stall` (no action until t=420, then commit hard) scores 0.251 against `blind`'s
-0.255. Commitment now both gates variant expression and reduces actuator
-authority, and it is still not enough. The second critic's predicted collapse is
-unresolved.
+Knowing is worth +0.020; being wrong costs −0.052. The probe is insurance
+against a downside two and a half times larger than its upside, which is a live
+judgement rather than a fixed opening.
+
+### 2. Stalling is still too cheap
+
+`stall` scores 0.200 against `blind`'s 0.215 — a real gap now, where it was 0.004
+before commitment began limiting actuator authority, but smaller than a design
+claiming that patience costs authority should produce. The second critic's
+predicted collapse is reduced, not resolved.
+
+The likely reason is structural: commitment stiffens *tissue*, and a stalling
+player avoids that by having no tissue. Plasticity probably needs to decay with
+dish age as well as with local structure.
 
 ### 3. The pass thresholds are fiction
 
-`passedShape` is 0.55; nothing has ever exceeded 0.28. They were written before
+`passedShape` is 0.55; the best policy reaches 0.235. They were written before
 anything worked. No policy has ever "passed", which makes the pass/fail signal
 meaningless rather than harsh.
 
@@ -78,21 +89,22 @@ an action "cannot form a theory, and cannot fail informatively".
 ## Dominant strategies found
 
 - **Feed inside the stencil, starve outside it.** Found immediately, works, and
-  requires reading nothing. This is currently the optimal policy and it is the
-  problem.
-- **Never probe.** Strictly correct as the game stands, since probes cost
-  viability and buy nothing.
+  requires reading nothing — it reaches 0.215 while ignoring the variant. It is no
+  longer optimal, but it is still strong enough that the stencil is doing more
+  work than it should. This is the next structural question.
+- **Never probe** is no longer correct: it forfeits the variant read, and being
+  wrong about the variant costs more than the probe does.
 
 ## What would change these conclusions
 
-The next experiment is specified exactly in `PROJECT_STATE.md`: make the
-actuators' *consequences* depend on the variant, so that the same input helps or
-harms according to a fact the player cannot see. If `informed > blind > guessing`
-does not appear after that, the stencil itself comes out of the game rather than
-another number being adjusted.
+A person playing it. Everything above is mechanical: it establishes that the
+decision has teeth, not that making it is enjoyable. The 40-second response
+latency in particular is the concept's largest untested risk.
 
 ## Honest overall assessment
 
-The simulation is better than the game. That is the exact failure mode the
-mandate warns about, it is visible in the evidence rather than hidden by it, and
-no presentation work will start until the gate above passes.
+The simulation is still better than the game, but the gap has closed: the central
+decision now has a measurable structure, and it is the structure the concept
+promised — a cheap read that is usually unnecessary and occasionally decisive.
+What remains untested is the only thing that finally matters, which is whether
+sitting with that decision for ten minutes is any good.

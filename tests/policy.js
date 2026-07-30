@@ -112,9 +112,11 @@ function variantAwareSteer(session, t, believesDissolving) {
     session.use(p.x, p.y, { held: true });
     return;
   }
-  // A dissolving strain eats itself and wants feeding; a ropy one overgrows and
-  // wants starving.
-  session.tool = believesDissolving ? 'nutrient' : 'shade';
+  // The carrying region metabolises enrichment backwards, so the tool that grows
+  // it is the one that would starve normal ground. Getting this the wrong way
+  // round is precisely the mistake an unread dish invites, which is why the
+  // guessing policy exists.
+  session.tool = believesDissolving ? 'shade' : 'nutrient';
   const p = targetPoint(session, Math.floor(t / 12));
   session.use(p.x, p.y, { held: true });
 }
@@ -182,7 +184,8 @@ export const POLICIES = {
    * probe costs, the central claim of the design is false.
    */
   informed(session, t, g) {
-    if (Math.abs(t - 90) < 0.13) {
+    if (t >= 90 && !session._probedOnce) {
+      session._probedOnce = true;
       session.tool = 'fluoresce';
       const c = targetCentroid(session);
       session.use(c.x, c.y, { held: false });
