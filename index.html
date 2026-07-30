@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>novel-game</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #05070c;
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    color: #cfd8e8;
+  }
+  #stage { position: fixed; inset: 0; display: block; }
+  #gl { width: 100%; height: 100%; display: block; touch-action: none; }
+
+  #hud {
+    position: fixed; top: 10px; left: 12px;
+    font-size: 11px; line-height: 1.45;
+    white-space: pre;
+    color: #7f92ad;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,.85);
+    opacity: .85;
+  }
+  #hud.hidden { display: none; }
+  #hud b { color: #d6e2f2; font-weight: 600; }
+  #hud .bad { color: #ff6b6b; }
+
+  #fatal {
+    position: fixed; inset: 0; display: none;
+    place-content: center; padding: 8vw;
+    background: #05070c; color: #ffb4b4;
+    font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow: auto;
+  }
+  #fatal.show { display: grid; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="gl"></canvas></div>
+  <div id="hud"></div>
+  <pre id="fatal"></pre>
+
+  <script type="module">
+    // Surface errors on screen. A browser game that fails silently to a black
+    // canvas is the single worst thing for an iteration loop — and for an agent
+    // driving this through a screenshot, an invisible error is indistinguishable
+    // from a rendering bug.
+    const fatal = document.getElementById('fatal');
+    function show(err) {
+      fatal.classList.add('show');
+      fatal.textContent = (fatal.textContent ? fatal.textContent + '\n\n' : '') +
+        (err && err.stack ? err.stack : String(err));
+      console.error('[fatal]', err);
+    }
+    addEventListener('error', (e) => show(e.error || e.message));
+    addEventListener('unhandledrejection', (e) => show(e.reason));
+
+    import('./src/main.js').catch(show);
+  </script>
+</body>
+</html>
