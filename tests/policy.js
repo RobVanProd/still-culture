@@ -97,6 +97,28 @@ function steerTowardTarget(session, t) {
   }
 }
 
+/**
+ * Steering that knows which variant it is dealing with.
+ *
+ * Inside the target it applies the correction the variant needs; outside it
+ * always starves. Believing the wrong variant therefore does active harm inside
+ * the shape you are trying to grow, which is the point.
+ */
+function variantAwareSteer(session, t, believesDissolving) {
+  const phase = Math.floor(t / 6) % 3;
+  if (phase === 2) {
+    session.tool = 'shade';
+    const p = outsidePoint(session, Math.floor(t / 12));
+    session.use(p.x, p.y, { held: true });
+    return;
+  }
+  // A dissolving strain eats itself and wants feeding; a ropy one overgrows and
+  // wants starving.
+  session.tool = believesDissolving ? 'nutrient' : 'shade';
+  const p = targetPoint(session, Math.floor(t / 12));
+  session.use(p.x, p.y, { held: true });
+}
+
 /** A point that is outside the target but inside the dish. */
 function outsidePoint(session, i) {
   const n = session.medium.size;
@@ -145,6 +167,41 @@ export const POLICIES = {
       }
     }
     steerTowardTarget(session, t);
+  },
+
+  /**
+   * Informed: pays for one early probe, then plays the variant correctly.
+   *
+   * The variant decides which correction the expressing region needs. A
+   * dissolving strain raises the local kill rate and eats itself, so it wants
+   * feeding; a ropy strain lowers it and overgrows, so it wants starving. Both
+   * are the wrong thing to do to the other.
+   *
+   * This policy is handed the answer rather than reading it, which is exactly
+   * what a probe buys. If it does not beat `blind` by more than the viability a
+   * probe costs, the central claim of the design is false.
+   */
+  informed(session, t, g) {
+    if (Math.abs(t - 90) < 0.13) {
+      session.tool = 'fluoresce';
+      const c = targetCentroid(session);
+      session.use(c.x, c.y, { held: false });
+      return;
+    }
+    const dissolving = g.strain.variantSign > 0;
+    variantAwareSteer(session, t, dissolving);
+  },
+
+  /**
+   * Guessing: never probes, and assumes the wrong variant.
+   *
+   * The floor for acting confidently on an unread dish. The gap between this and
+   * `informed` is the value of knowing; the gap between this and `blind` is the
+   * cost of being wrong rather than merely uncommitted.
+   */
+  guessing(session, t, g) {
+    const dissolving = g.strain.variantSign > 0;
+    variantAwareSteer(session, t, !dissolving);
   },
 
   /**

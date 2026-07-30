@@ -142,11 +142,12 @@ const BRUSH_FS = `#version 300 es
 precision highp float;
 
 uniform sampler2D uSrc;
+uniform sampler2D uState;   // for commitment, which limits actuator authority
 uniform vec2  uCenter;      // in uv space
 uniform float uInner;       // annulus inner radius (0 for a disc)
 uniform float uOuter;
 uniform float uStrength;
-uniform int   uMode;        // 0 nutrient, 1 thermal, 2 shear, 3 bleach, 4 aspirate, 5 seed
+uniform int   uMode;        // 0 nutrient, 1 thermal, 2 shear, 3 bleach, 4 aspirate, 5 seed, 6 shade
 uniform float uAspect;
 
 in vec2 vUv;
@@ -164,6 +165,23 @@ void main() {
   float a = band * uStrength;
 
   if (a <= 0.0001) { frag = src; return; }
+
+  // Committed tissue stops listening.
+  //
+  // This is where waiting is actually made to cost something. Commitment already
+  // decided *where* the hidden variant expresses; here it also decides how much
+  // authority the player still has over that ground. A region the culture has
+  // differentiated can be nudged but no longer steered, so a correction made
+  // late is a weaker correction, not merely a later one.
+  //
+  // The floor of 0.15 matters as much as the slope: fully committed ground must
+  // remain slightly movable, or a player who reads the dish correctly but a
+  // little too late is handed a region they can do literally nothing with, and
+  // that reads as the game having stopped working rather than as a lesson.
+  if (uMode == 0 || uMode == 6) {
+    float commit = texture(uState, vUv).a;
+    a *= mix(1.0, 0.15, clamp(commit, 0.0, 1.0));
+  }
 
   // Nutrient lowers the kill rate; shade raises it.
   //
@@ -409,7 +427,9 @@ export class Medium {
     gl.uniform1i(u.uMode, mode);
     gl.uniform1f(u.uAspect, 1.0);
     gl.uniform1i(u.uSrc, 0);
+    gl.uniform1i(u.uState, 1);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.state[this.front].tex);
 
     this._bindDraw(dst);
     this._draw();
