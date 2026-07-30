@@ -24,6 +24,7 @@ import { Shell } from './game/shell.js';
 import { Onboarding } from './game/onboarding.js';
 import { Hud } from './ui/hud.js';
 import { ToolPalette } from './ui/toolpalette.js';
+import { Primer } from './ui/primer.js';
 import { settings } from './game/settings.js';
 import { Trace } from './game/trace.js';
 import { attachRecorder } from './game/save.js';
@@ -179,7 +180,18 @@ loop.render = (alpha, frameMs) => {
   palette.refresh();
 };
 
+// The HUD draws its own read-only tool list, and the palette draws an
+// interactive one. Two tool lists on a phone is what the first playtest saw.
+// The interactive one wins; the HUD's is hidden rather than deleted, because it
+// is the better display on a desktop and may come back behind a setting.
+const dupTools = document.querySelector('.sc-tools');
+if (dupTools) dupTools.style.display = 'none';
+
 shell.begin?.();
+
+// The opening card. Six lines: the goal, the controls, and the catch. Shown once
+// per browser; `GAME.primer()` brings it back.
+let primer = new Primer({ onDismiss: () => audio.start() });
 
 // ---------------------------------------------------------------------------
 // Diagnostics — the evidence pipeline everything in this repo rests on.
@@ -206,6 +218,13 @@ globalThis.GAME = {
   },
 
   hud(on) { hudView.setVisible(on); },
+
+  /** Re-show the opening card. */
+  primer() {
+    if (!primer || !primer.visible) primer = new Primer({ onDismiss: () => audio.start() });
+    else primer.show();
+    return true;
+  },
 
   async capture({ name = 'capture.png', width = 1200, height = 1200, at = null, ui = false } = {}) {
     const wasRunning = loop.running;

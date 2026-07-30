@@ -37,7 +37,7 @@
 //   shell.state              // 'title' | 'playing' | 'paused' | 'assay'
 
 import { clamp01, approach } from '../core/math.js';
-import { TOOL_ORDER, TOOL_INFO } from './session.js';
+import { TOOL_ORDER, TOOL_INFO , THRESHOLDS } from './session.js';
 
 export const SHELL_STATE = {
   TITLE: 'title',
@@ -107,12 +107,27 @@ export function describeRun(result) {
     .map(t => `${TOOL_INFO[t].label} ${counts.get(t)}s`)
     .join('  ');
 
+  // Wording matters more than it looks. The first version read
+  // "waste 0 of 4 changed no later action", which a player reasonably parsed as
+  // "0 of 4" being the score for something, and could not tell whether 0 was
+  // good. Each line now says what happened in a sentence that survives being
+  // read once, at a glance, by someone who has just finished a ten-minute dish.
+  const used = result.probes;
+  const wasted = result.wasted;
+  const wasteLine = used === 0
+    ? 'you never used an instrument'
+    : wasted === 0
+      ? `all ${used} reading${used === 1 ? '' : 's'} changed what you did next`
+      : wasted === used
+        ? (used === 1
+            ? 'your one reading changed nothing you did next'
+            : `none of your ${used} readings changed what you did next`)
+        : `${wasted} of ${used} readings changed nothing you did afterwards`;
+
   return [
-    `worked   ${worked || 'nothing'}`,
-    `probes   ${probeTimes.length ? probeTimes.join('  ') : 'none'}`,
-    `waste    ${result.probes === 0
-      ? 'nothing was asked'
-      : `${result.wasted} of ${result.probes} changed no later action`}`,
+    `spent on   ${worked || 'nothing — the dish was left alone'}`,
+    `looked at  ${probeTimes.length ? probeTimes.join('  ') : 'never'}`,
+    `verdict    ${wasteLine}`,
   ];
 }
 
@@ -510,22 +525,18 @@ export class Shell {
     }
     return {
       kind: 'assay',
-      title: 'ASSAY',
+      title: result.passedShape && result.passedViability ? 'ASSAY  ·  PASSED' : 'ASSAY  ·  NOT ACCEPTED',
       subtitle: `${this.seedName}  ·  ${mmss(this.duration)}`,
       rows: [
-        // The two thresholds are written out here because session.js keeps them
-        // inline in `assay()` and exports nothing. They are duplicated, which
-        // means they can drift: the display would then draw a notch in a place
-        // the rules do not agree with, and a player would be told they were
-        // short of a bar they had cleared. Exporting them from session.js is the
-        // fix and it belongs in that file.
+        // Thresholds come from session.js so the notch and the rule cannot
+        // disagree.
         //
         // Scaled to 0.40 rather than to 1. Intersection over union on a culture
         // grown with these actuators does not reach anywhere near 1, and a bar
         // that is always a quarter full tells the player they failed when they
         // did not.
-        { label: 'shape', value: result.shape, threshold: 0.240, pass: result.passedShape, scale: 0.40 },
-        { label: 'viability', value: result.viability, threshold: 0.700, pass: result.passedViability, scale: 1.0 },
+        { label: 'shape', value: result.shape, threshold: THRESHOLDS.shape, pass: result.passedShape, scale: 0.40 },
+        { label: 'viability', value: result.viability, threshold: THRESHOLDS.viability, pass: result.passedViability, scale: 1.0 },
       ],
       notes: describeRun(result),
       reading: readAssay(result),

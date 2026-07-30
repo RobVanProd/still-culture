@@ -13,3 +13,6 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# 54MB binary, fetched on demand from the official Cloudflare release.
+tools/cloudflared.exe

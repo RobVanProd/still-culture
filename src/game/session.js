@@ -22,15 +22,35 @@ export const TOOL = {
   ASPIRATE: 'aspirate',
 };
 
+/**
+ * The two bars a dish must clear.
+ *
+ * Exported because the results screen draws a notch at each of them, and when it
+ * carried its own copy the two could drift — a player would be told they were
+ * short of a bar they had actually cleared, which is worse than no bar at all.
+ */
+export const THRESHOLDS = { shape: 0.240, viability: 0.700 };
+
 export const TOOL_ORDER = [TOOL.NUTRIENT, TOOL.SHADE, TOOL.THERMAL, TOOL.SHEAR, TOOL.FLUORESCE, TOOL.ASPIRATE];
 
+// `verb` is the whole reason this table has three name fields.
+//
+// The first playtest ended with "I was confused what things do". The labels were
+// the fiction's names for the instruments — nutrient, shade, aspirate — and the
+// explanation of what each one *does* was in a tooltip, which does not exist on
+// a phone, and in an aria-label, which a sighted player never hears. So the
+// player was given six nouns and no verbs.
+//
+// `verb` is what the tool does to the dish, in one word, printed on the control.
+// `cost` is what it takes, printed next to it in red when there is one. Neither
+// is a tutorial: they are the label the control should always have had.
 export const TOOL_INFO = {
-  [TOOL.NUTRIENT]:  { label: 'nutrient',   kind: 'actuator', key: '1', hint: 'raises feed; grows and thickens' },
-  [TOOL.SHADE]:     { label: 'shade',      kind: 'actuator', key: '2', hint: 'starves; retracts a front' },
-  [TOOL.THERMAL]:   { label: 'thermal',    kind: 'actuator', key: '3', hint: 'accelerates whatever is already happening' },
-  [TOOL.SHEAR]:     { label: 'shear',      kind: 'actuator', key: '4', hint: 'moves mass without creating it' },
-  [TOOL.FLUORESCE]: { label: 'fluoresce',  kind: 'probe',    key: '5', hint: 'shows concentration exactly, and bleaches it' },
-  [TOOL.ASPIRATE]:  { label: 'aspirate',   kind: 'probe',    key: '6', hint: 'exact numbers, permanent hole' },
+  [TOOL.NUTRIENT]:  { label: 'nutrient',  verb: 'grow',   cost: '',        kind: 'actuator', key: '1', hint: 'enriches the medium — the culture spreads and thickens here' },
+  [TOOL.SHADE]:     { label: 'shade',     verb: 'shrink', cost: '',        kind: 'actuator', key: '2', hint: 'starves the medium — the edge pulls back here' },
+  [TOOL.THERMAL]:   { label: 'warm',      verb: 'hasten', cost: '',        kind: 'actuator', key: '3', hint: 'makes whatever is already happening here happen sooner' },
+  [TOOL.SHEAR]:     { label: 'shear',     verb: 'push',   cost: '',        kind: 'actuator', key: '4', hint: 'drags existing growth sideways — moves it, never makes it' },
+  [TOOL.FLUORESCE]: { label: 'stain',     verb: 'reveal', cost: 'kills it', kind: 'probe',   key: '5', hint: 'shows exactly what is here, and destroys this patch doing it' },
+  [TOOL.ASPIRATE]:  { label: 'sample',    verb: 'extract', cost: 'leaves a hole', kind: 'probe', key: '6', hint: 'exact reading, and a permanent hole in the culture' },
 };
 
 export class Session {
@@ -283,8 +303,8 @@ export class Session {
       // 0.151. The shape bar sits just under skilled play so a good session
       // passes and a careless one does not, and the viability bar sits where
       // roughly three probes' worth of damage fails.
-      passedShape: shape >= 0.240,
-      passedViability: viability >= 0.700,
+      passedShape: shape >= THRESHOLDS.shape,
+      passedViability: viability >= THRESHOLDS.viability,
       get passed() { return this.passedShape && this.passedViability; },
       log: this.log.slice(),
     };
