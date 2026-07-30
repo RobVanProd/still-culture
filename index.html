@@ -2,12 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>novel-game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05070c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="A living medium grows in a dish, and every instrument that would tell you what it is doing also damages it.">
+<title>STILL CULTURE</title>
 <style>
   :root { color-scheme: dark; }
   html, body {
-    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    margin: 0; padding: 0; overflow: hidden;
+    /* dvh rather than vh: on a phone, vh is the height with the browser chrome
+       hidden, so a 100vh layout is taller than the visible page and the bottom
+       of the interface — which is exactly where the tool palette lives — sits
+       under the address bar until the user scrolls, which they cannot do. */
+    height: 100dvh; min-height: 100%;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
     background: #05070c;
     font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
     color: #cfd8e8;
@@ -25,6 +37,10 @@
     opacity: .85;
   }
   #hud.hidden { display: none; }
+  @media (max-width: 720px) {
+    /* Clear of the notch, and clear of the palette at the bottom. */
+    #hud { top: calc(8px + env(safe-area-inset-top, 0px)); left: 10px; font-size: 10px; }
+  }
   #hud b { color: #d6e2f2; font-weight: 600; }
   #hud .bad { color: #ff6b6b; }
 

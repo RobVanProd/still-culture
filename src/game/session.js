@@ -353,7 +353,15 @@ export function makeTarget(seedName, size, seedPoints = null) {
         const d = Math.hypot(u - l.x, v - l.y);
         f += smoothstep(l.r, l.r * 0.35, d);
       }
-      out[y * size + x] = f > 0.55 ? 1 : 0;
+      // 255, not 1.
+      //
+      // This array is read two ways and they disagree about units. The scoring
+      // code tests it for truthiness, where 1 is fine; the renderer uploads it
+      // as an R8 texture, where the sampler normalises by 255 — so a mask full
+      // of 1s arrives in the shader as 0.004 and the engraved outline was
+      // invisible at any brightness. It looked like the stencil was not being
+      // drawn; it was being drawn at a four-hundredth of its intended value.
+      out[y * size + x] = f > 0.55 ? 255 : 0;
     }
   }
   return out;
