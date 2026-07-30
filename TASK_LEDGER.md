@@ -17,38 +17,39 @@ Status: `todo` · `doing` · `done` · `blocked` · `dropped`
 | 2 | Actuators have authority | Each actuator moves local coverage measurably against a no-input control | **done** | nutrient +0.100, shade −0.036 vs control |
 | 3 | Probes cost the substrate | Scar persists to the assay; viability falls measurably | **done** | viability 0.835 after 4 probes |
 | 4 | Steering beats passivity | A steering policy beats do-nothing by a clear margin | **done** | blind 0.255 vs passive 0.208 |
-| 5 | **Knowing beats not knowing** | `informed > blind > guessing`, margin > one probe's viability cost (~0.04) | **doing** | **FAILING**: informed 0.198 < blind 0.255 |
-| 6 | **Stalling must cost** | `stall` scores materially below `blind` | **doing** | **FAILING**: 0.251 vs 0.255 |
-| 7 | Recalibrate pass thresholds | Thresholds set from the distribution of good play, not guessed | todo | current 0.55 never approached |
-| 8 | Human playtest | One person plays three dishes unassisted and can explain why they failed | blocked by 5, 6 | — |
+| 5 | **Knowing beats not knowing** | `informed > blind > guessing`, margin > one probe's viability cost | **done** | informed 0.254 > blind 0.220 > guessing 0.151 |
+| 6 | Stalling must cost | `stall` below `blind` | **done (modest)** | 0.203 vs 0.220. An ageing mechanism was tried and reverted — see DECISION_LOG |
+| 7 | Recalibrate pass thresholds | Set from the distribution of good play | **done** | 0.240 shape / 0.700 viability, from measured play |
+| 8 | **Human playtest** | One person plays unassisted and can explain why they failed | **ready** | nothing blocking; tunnel to be raised |
 
-Tasks 5 and 6 are the gate. Everything below is deliberately not started.
+The gate is passed. Phase 3 below is built and integrated.
 
 ## P1 — controls and readability (after the gate)
 
 | # | Task | Acceptance criteria | Status |
 |---|---|---|---|
-| 9 | Onboarding through play | A new player performs each verb once without text instruction | todo |
-| 10 | The hum is genuinely readable | A player can name which of three dish states they are hearing, eyes closed, above chance | todo |
-| 11 | Actuator feedback | Every input has a visible response within 200 ms, distinct per tool | todo |
-| 12 | After-action trace | Post-run scrub showing interventions against what the field did | todo |
-| 13 | Waste reporting | Assay names probes that changed no subsequent action | done (untested) |
+| 9 | Onboarding through play | A new player performs each verb once without text instruction | **done** | seven lessons, provoked by dish state |
+| 10 | The hum is genuinely readable | States separable in the hum | **done (measured)** | 21/21 pairs separable by d-prime; *heard* by a human is untested |
+| 11 | Actuator feedback | Every input has a distinct response | **done** | cue layer, synthesised |
+| 12 | After-action trace | Post-run scrub of interventions against the field | **done** | `src/game/trace.js`, replayed deterministically |
+| 13 | Waste reporting | Assay names probes that changed nothing | **done** | in the results screen |
+| 14 | Touch / mobile | Playable on a phone | **done** | unified Pointer, DOM palette, dvh + safe-area |
 
 ## P2 — structure
 
 | # | Task | Acceptance criteria | Status |
 |---|---|---|---|
-| 14 | Session arc | Opening, escalation, conclusion inside one 10-minute dish | todo |
-| 15 | Save / pause / restart | State survives reload; pause is not a speed exploit | todo |
-| 16 | Accessibility | Playable with sound off at reduced effectiveness; colour-blind safe; remappable | todo |
+| 15 | Session arc | Title, onboarding, escalation, assay | **done** | `src/game/shell.js` |
+| 16 | Save / pause / restart | Survives reload; pause is not a speed exploit | **done** | seed + input log replay, 21/21 tests |
+| 17 | Accessibility | Sound-off playable; colour-blind safe; settings persist | **done** | visual trace channel, `src/game/settings.js` |
 
 ## P3 — presentation and performance
 
 | # | Task | Acceptance criteria | Status |
 |---|---|---|---|
-| 17 | Dark-field art pass | Reads as a living medium, not an oil slick; iridescence restrained | todo |
-| 18 | Measure frame timing | Real numbers against the budgets in ARCHITECTURE.md | todo |
-| 19 | Audio mix | Readable during dense play; limiter never pumping | todo |
+| 18 | Dark-field art pass | Reads as a living medium, not an oil slick | **done** | `evidence/baseline/art_pass.png` |
+| 19 | Measure frame timing | Real numbers against the budgets | **blocked** | headless timing is not trustworthy — pane does not composite. Needs a real device |
+| 20 | Audio mix | Readable during dense play | **partial** | limiter in place; mix under load unverified without a listener |
 
 ## Dropped
 

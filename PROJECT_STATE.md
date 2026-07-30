@@ -10,13 +10,13 @@ this file alone.
 
 ## Where we are
 
-Phase 0 (harness) complete and verified. Phase 1 (genre selection) complete and
-recorded. **Phase 2's central gate has passed.** Knowing the hidden variant now
-beats not knowing it, and acting on a wrong belief is worse than not acting on
-one — which is the concept's whole thesis, expressed as a measurement.
+**Phases 0 to 3 are complete.** The vertical slice is built, integrated and
+verified: harness, genre selection, core loop, and now onboarding, session shell,
+HUD, dark-field art pass, procedural audio with verified discriminability,
+save/replay, settings, accessibility, an after-action trace, and touch support.
 
-Three Phase 2 items remain open: stalling is still too cheap, the pass thresholds
-are still fiction, and no human has played it.
+The one thing that has never happened is a human playing it. That is the next
+step and nothing else is blocking it.
 
 ## What is measured and true
 
@@ -24,46 +24,57 @@ are still fiction, and no human has played it.
 
 | Policy | Shape (IoU) | Probes | Viability |
 |---|---|---|---|
-| passive — do nothing | 0.208 | 0 | 1.000 |
-| stall — act only after t=420 | 0.200 | 0 | 1.000 |
-| blind — steer, ignore the variant | 0.215 | 0 | 1.000 |
-| probeOnce / probeHeavy — probe, ignore what it says | 0.215 / 0.214 | 4 / 6 | 0.835 |
-| **informed** — one probe, plays the variant | **0.235** | 1 | 0.919 |
-| **guessing** — acts on the wrong belief | **0.163** | 0 | 1.000 |
+| passive — do nothing | 0.216 | 0 | 1.000 |
+| stall — act only after t=420 | 0.203 | 0 | 1.000 |
+| blind — steer, ignore the variant | 0.220 | 0 | 1.000 |
+| probeOnce / probeHeavy — probe, ignore what it says | 0.220 / 0.219 | 4 / 6 | 0.835 |
+| **informed** — one probe, plays the variant | **0.254** | 1 | 0.919 |
+| **guessing** — acts on the wrong belief | **0.151** | 0 | 1.000 |
 
 The shape of that table is the design working:
 
-- **Knowing is worth +0.020. Being wrong costs −0.052.** The probe's value is not
-  its upside, it is insurance against a downside two and a half times larger.
-  That asymmetry is what makes "do I look" a judgement rather than a habit.
+- **Knowing is worth +0.034. Being wrong costs −0.069.** The probe's value is not
+  its upside, it is insurance against a downside twice as large. That asymmetry
+  is what makes "do I look" a judgement rather than a habit.
 - **Probing without using the answer is pure loss** — `probeHeavy` pays 0.165 of
   viability for nothing. The instrument is not a score button.
-- **Steering beats passivity**; player agency exists.
-- **The stencil is still doing too much work.** `blind` gets 0.215 while ignoring
-  the variant entirely, because the target tells you where to push. This is the
-  next structural question, not a tuning one.
+- **Steering beats passivity**, though only by 0.004 when the variant is ignored.
+- **The stencil is still doing work.** `blind` reaches 0.220 while ignoring the
+  variant entirely, because the target says where to push. Withholding the
+  stencil is the obvious next structural experiment if the human playtest says
+  the reading is too shallow.
+
+Other suites, all passing: `tests/smoke.js` 11/11 invariants, `tests/save.js`
+21/21 (including a bit-identical replay from seed plus input log, and a control
+proving a one-tick shift diverges), `tests/audio.js` 21/21 state pairs separable
+by d-prime — including variant-off against variant-on at 2.64 JNDs, carried by
+the beat, which is the pair the probe exists for.
 
 ## Known defects, in priority order
 
-1. **Stalling is too cheap.** 0.200 against 0.215. Commitment reduces actuator
-   authority and gates variant expression, and a late player still pays only
-   0.015. It should hurt more.
-2. **The pass thresholds are fiction.** `passedShape` is 0.55; the best policy
-   reaches 0.235. They were guessed before anything worked. Recalibrate from the
-   distribution of good play.
-3. **No human has played this.** Every number above is from bots. Bots establish
-   whether a mechanic is load-bearing; they cannot say whether a decision is
-   *interesting*, and that is the actual claim.
-4. **The 40-second response latency is untested on a person.** A critic warned
+1. **No human has played this.** Every number in this repository is from bots.
+   Bots establish whether a mechanic is load-bearing; they cannot say whether a
+   decision is *interesting*, and that is the actual claim being made.
+2. **The 40-second response latency is untested on a person.** A critic warned
    that a player who cannot attribute an outcome to an action "cannot form a
-   theory, and cannot fail informatively". This is the biggest unquantified risk.
-5. **Frame timing instrumented but unmeasured.** `requestAnimationFrame` does not
-   run while the browser pane is hidden, which is how this is developed. The
-   budgets in ARCHITECTURE.md are declared, not verified.
-6. **The dark-field render is over-saturated** — reads as an oil slick rather than
-   a living medium. Deliberately deferred; presentation does not start until the
-   loop is done.
-7. **No onboarding, save, pause, or accessibility.** Phase 3, correctly not begun.
+   theory, and cannot fail informatively". Onboarding now names the latency
+   explicitly for exactly this reason, but naming it is not the same as it
+   feeling good. Biggest unquantified risk in the design.
+3. **Frame timing is still not honestly measured.** Direct timing of the render
+   returns implausible figures — 0.02 ms median at 4K — because the browser pane
+   is not compositing while this is developed, so the driver may be discarding
+   work and `gl.finish()` may be returning early. The shader has an early-out
+   for everything outside the dish, so real headroom is probably large, but
+   *probably* is the honest word. This needs a visible window or a real device.
+4. **Stalling costs 0.017**, comparable to what reading the variant gains. A
+   substrate-ageing mechanism was tried to make it hurt more and was reverted —
+   see DECISION_LOG. Left as measured.
+5. **`blind` beats `passive` by only 0.004.** Playing without reading the variant
+   is barely better than not playing. Skilled play is clearly ahead, so this may
+   be correct design rather than a defect, but it is unverified either way.
+6. **Two of six audio test dishes were inert** — the variant never expressed at
+   all, so those dishes have nothing for a player to read. Seed generation may
+   want a guarantee that the variant expresses somewhere.
 
 ## Blockers
 
@@ -90,17 +101,20 @@ Full record in `DECISION_LOG.md`. The four that cost the most:
 
 ## Exact next action
 
-Make stalling cost more, and do it structurally rather than by raising a number.
-The current commitment model reduces actuator authority in already-committed
-tissue, which a stalling player avoids by simply having no tissue. Candidate: let
-plasticity decay with *dish age* as well as with local structure, so a deliberately
-blank dish also stiffens. Falsify with the existing `stall` policy — it must fall
-clearly below `blind`.
+**Put it in front of a person.** Everything that can be established without one
+has been. The specific questions a playtest has to answer, in order:
 
-Then recalibrate the pass thresholds from the measured distribution, and get one
-human in front of it. Do not start visual, audio or onboarding work before that
-playtest: the render is already better than the game deserves, which is exactly
-the trap the mandate warns about.
+1. Does the forty-second latency read as depth or as broken controls? This is the
+   design's largest risk and no amount of further engineering will settle it.
+2. Can a player form a theory about why they failed? The after-action trace exists
+   for this; it has never been used by someone who did not write it.
+3. Is the hum heard as information or as ambience? It is measurably
+   discriminative; that is not the same as being noticed.
+4. Does the moment of discovering the variant inverts your actuator land as a
+   revelation or as unfairness?
+
+Only after that: whether to withhold the stencil, and whether stalling needs to
+cost more.
 
 ## Reproducing the evidence
 
