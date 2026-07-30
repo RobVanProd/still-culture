@@ -239,7 +239,9 @@ export async function runPolicyExperiment(GAME, { dishes = 4, duration = 600 } =
         shape: r.shape,
         viability: r.viability,
         scar: r.scarLoad,
-        passed: r.passedShape && r.passedViability,
+        passed: r.passedShape && r.passedCharacter && r.passedViability,
+        character: r.character,
+        characterName: r.characterName,
         probes: r.probes,
         wasted: r.wasted,
       });
@@ -253,6 +255,7 @@ export async function runPolicyExperiment(GAME, { dishes = 4, duration = 600 } =
       policy: name,
       shape: +avg(r => r.shape).toFixed(3),
       viability: +avg(r => r.viability).toFixed(3),
+      character: +avg(r => r.character).toFixed(3),
       scar: +avg(r => r.scar).toFixed(4),
       passRate: +avg(r => (r.passed ? 1 : 0)).toFixed(2),
       probes: +avg(r => r.probes).toFixed(1),

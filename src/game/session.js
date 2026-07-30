@@ -31,6 +31,61 @@ export const TOOL = {
  */
 export const THRESHOLDS = { shape: 0.240, viability: 0.700 };
 
+/**
+ * ABANDONED as a scoring criterion. Retained only as a measurement, and as a
+ * record of a mechanism that was tried and does not work.
+ *
+ * The idea: ask the brief for a texture as well as an outline, so that filling
+ * the stencil is not the whole game. It came from a playtester's intuition —
+ * "the idea is to have the squiggles match the shape? but the shape isn't
+ * telling the whole story?" — and the measurements agreed with them: a policy
+ * that ignored everything interesting and pushed mass toward the outline scored
+ * 0.220 against 0.254 for reading the dish properly.
+ *
+ * Why it failed: interface per unit mass is **not controllable**, and very
+ * nearly not variable. Measured across every actuator, held for 300 seconds:
+ * 2.867 with no input, 2.834 under nutrient, 2.867 under shade, 2.866 under
+ * thermal. A sweep of the diffusion ratio — which is what actually sets pattern
+ * wavelength — moved it from 2.78 to 2.88 and killed the culture outside that
+ * band. Gray-Scott makes stripes whose boundary and mass scale together, so the
+ * ratio is close to a constant of the system. The metric did not measure what it
+ * was chosen to measure.
+ *
+ * A score the player cannot influence is worse than no score: it fails them for
+ * nothing and teaches them the game is arbitrary. Two mechanisms were tried
+ * (target ratios, then a diffusion lever) and the project rule is to stop after
+ * two and change direction rather than tune. The player's diagnosis stands and
+ * is still open; this particular answer to it does not work.
+ *
+ * ---
+ *
+ * What the culture is supposed to *be*, as distinct from where it is supposed to
+ * be.
+ *
+ * The first playtest arrived at the real defect by intuition — "the idea is to
+ * have the squiggles match the shape? but the shape isn't telling the whole
+ * story?" — and the measurements agreed: a policy that ignored everything
+ * interesting and simply pushed mass toward the outline scored 0.220 against
+ * 0.254 for reading the dish properly. When the target is a stencil, the correct
+ * action everywhere is deducible from the stencil, and the game's actual subject
+ * becomes optional.
+ *
+ * So the brief now asks for a texture as well as an outline. Character is
+ * interface per unit mass: how finely divided the growth is. Fine filaments have
+ * a great deal of boundary for their mass, fat lobes have very little, and the
+ * two are reached by different treatment of the same region.
+ *
+ * The player is told which is wanted, in words. What they are not told — and
+ * what the stencil cannot tell them — is what the dish is *currently* doing,
+ * because at a glance dense filaments and coarse worms look much alike in
+ * motion. That reading is exactly what the hum carries and what a probe buys.
+ */
+export const CHARACTERS = {
+  fine:   { name: 'fine',   ratio: 3.05, blurb: 'fine, densely divided filaments' },
+  even:   { name: 'even',   ratio: 2.35, blurb: 'an even, moderately divided mat' },
+  coarse: { name: 'coarse', ratio: 1.70, blurb: 'coarse, heavy, thick-walled growth' },
+};
+
 export const TOOL_ORDER = [TOOL.NUTRIENT, TOOL.SHADE, TOOL.THERMAL, TOOL.SHEAR, TOOL.FLUORESCE, TOOL.ASPIRATE];
 
 // `verb` is the whole reason this table has three name fields.
@@ -83,6 +138,11 @@ export class Session {
     this.scarSpend = 0;
 
     this.target = makeTarget(strain.seedName, medium.size, strain.seedPoints);
+
+    // Deterministic from the dish name, like everything else.
+    const cr = new Rng(seedFrom(strain.seedName + ':character'));
+    const keys = Object.keys(CHARACTERS);
+    this.character = CHARACTERS[keys[cr.int(0, keys.length - 1)]];
 
     this.stats = null;
     this.statsBuf = null;
@@ -240,6 +300,9 @@ export class Session {
 
     let inBoth = 0, inTarget = 0, inCulture = 0;
     let scarSum = 0, commitSum = 0, mass = 0;
+    // Character is measured only inside the target. Structure the player was
+    // never asked for should not be able to drag the texture score either way.
+    let massIn = 0, ifaceIn = 0;
 
     for (let i = 0; i < n * n; i++) {
       const V = buf[i * 4 + 1];
@@ -250,6 +313,8 @@ export class Session {
       if (live && want) inBoth++;
       if (want) inTarget++;
       if (live) inCulture++;
+
+      if (want) { massIn += V; ifaceIn += V * (1 - V) * 4; }
 
       scarSum += scar;
       commitSum += buf[i * 4 + 3];
@@ -265,6 +330,14 @@ export class Session {
     // Viability: a dish can match the stencil perfectly and still fail, which is
     // the second, epistemic way to lose.
     const viability = clamp01(1 - scarLoad * 5.5);
+
+    // Character: how finely divided the growth actually came out, against what
+    // the brief asked for. Scored on a tolerance rather than exactly, because
+    // these actuators are far too blunt to hit a ratio on the nose and demanding
+    // it would be demanding something impossible.
+    const ratio = massIn > 1e-6 ? ifaceIn / massIn : 0;
+    const wanted = this.character.ratio;
+    const character = clamp01(1 - Math.abs(ratio - wanted) / 1.05);
 
     // Waste: probes that changed no subsequent action.
     //
@@ -286,6 +359,10 @@ export class Session {
     this.state = 'assayed';
     this.result = {
       shape: +shape.toFixed(4),
+      character: +character.toFixed(4),
+      characterRatio: +ratio.toFixed(3),
+      characterWanted: wanted,
+      characterName: this.character.name,
       scarLoad: +scarLoad.toFixed(4),
       viability: +viability.toFixed(4),
       coverage: inCulture / (n * n),
@@ -305,6 +382,8 @@ export class Session {
       // roughly three probes' worth of damage fails.
       passedShape: shape >= THRESHOLDS.shape,
       passedViability: viability >= THRESHOLDS.viability,
+      // Kept as a measurement, not a criterion. See CHARACTERS above for why.
+      passedCharacter: true,
       get passed() { return this.passedShape && this.passedViability; },
       log: this.log.slice(),
     };

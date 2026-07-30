@@ -64,7 +64,8 @@ function mmss(seconds) {
  * the worst thing that happened is the thing worth saying.
  */
 export function readAssay(result) {
-  const { shape, probes, wasted, coverage, passedShape, passedViability } = result;
+  const { shape, probes, wasted, coverage, passedShape, passedViability,
+          passedCharacter, characterRatio, characterWanted, characterName } = result;
   const acted = result.log.some(e => ACTUATORS.has(e.kind));
 
   if (!acted) return 'You did not touch it. The dish did what it was going to do.';
@@ -525,7 +526,7 @@ export class Shell {
     }
     return {
       kind: 'assay',
-      title: result.passedShape && result.passedViability ? 'ASSAY  ·  PASSED' : 'ASSAY  ·  NOT ACCEPTED',
+      title: result.passed ? 'ASSAY  ·  ACCEPTED' : 'ASSAY  ·  NOT ACCEPTED',
       subtitle: `${this.seedName}  ·  ${mmss(this.duration)}`,
       rows: [
         // Thresholds come from session.js so the notch and the rule cannot

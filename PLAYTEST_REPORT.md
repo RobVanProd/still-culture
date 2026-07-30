@@ -101,6 +101,47 @@ A person playing it. Everything above is mechanical: it establishes that the
 decision has teeth, not that making it is enjoyable. The 40-second response
 latency in particular is the concept's largest untested risk.
 
+## Playtest 2 — first human, on a phone
+
+Verbatim: *"I was confused what things do. i am unsure of the results I got as
+well. it's promising but confusing. there is like no onboarding or explanation"*,
+and then, on being told the goal: *"the idea is to have the squiggles match the
+shape? but the shape isn't telling the whole story?"*
+
+Three findings, in descending order of how much they cost.
+
+**1. A CSS collision made the interface broken, not merely unclear.** `hud.js` and
+`toolpalette.js` both defined `.sc-tool`; the HUD's vertical-list styling won, so
+on a phone the palette rendered as a column stacked down the left edge, on top of
+the results screen. Separately, six controls overflowed a 375 px viewport. The
+player was fighting a half-broken interface, and any usability conclusion drawn
+before this was fixed would have been about the bug rather than the design.
+
+**2. The game gave six nouns and no verbs.** Controls were labelled with the
+fiction's names — nutrient, shade, aspirate — and what each *did* lived in a
+tooltip (absent on touch) and an aria-label (never heard by a sighted player).
+"Understandable through play" had been applied to mean "unexplained", which is
+not the same thing and produced button-mashing rather than discovery. Fixed:
+controls lead with the verb, print their cost, and a five-line card states the
+goal, the controls and the catch. What is still withheld is what actually matters
+— the latency, the variant, and the inversion.
+
+**3. The player diagnosed the deepest defect unprompted, and it is still open.**
+"The shape isn't telling the whole story" is the same finding as the measured one:
+`blind`, which ignores the variant entirely and pushes mass at the outline, scores
+0.220 against `informed`'s 0.254. The stencil tells you what to do, so the game's
+real subject is optional.
+
+**The first attempt to fix it failed and was reverted.** A third score was added
+for *texture* — interface per unit mass, against a brief. It does not work,
+because that quantity is not controllable and barely varies: 2.867 with no input,
+2.834 under nutrient, 2.867 under shade, 2.866 under thermal, and 2.78–2.88
+across a full sweep of the diffusion ratio, which is what actually sets pattern
+wavelength. Gray-Scott makes stripes whose boundary and mass scale together, so
+the metric is close to a constant of the system and did not measure what it was
+chosen to measure. A score the player cannot influence is worse than no score, so
+it is gone. The diagnosis stands; this answer to it does not.
+
 ## Honest overall assessment
 
 The simulation is still better than the game, but the gap has closed: the central

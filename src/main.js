@@ -47,6 +47,7 @@ let shell = null;
 let trace = null;
 // Declared before newDish, which runs during bootstrap and refreshes it.
 let palette = null;
+let briefEl = null;
 
 function newDish(seedName = 'dish-001', regime = 'coral', duration = 600) {
   strain = new Strain(seedName, { size: medium.size, regime });
@@ -58,6 +59,7 @@ function newDish(seedName = 'dish-001', regime = 'coral', duration = 600) {
   loop.simTime = 0;
   stepAccum = 0;
   palette?.refresh();
+  refreshBrief();
   return session;
 }
 
@@ -192,6 +194,29 @@ shell.begin?.();
 // The opening card. Six lines: the goal, the controls, and the catch. Shown once
 // per browser; `GAME.primer()` brings it back.
 let primer = new Primer({ onDismiss: () => audio.start() });
+
+// The brief, always on screen.
+//
+// Texture is half the assay and it is the half a player will not think to ask
+// about, so it cannot live only in the results. One line, top-left, under the
+// clock: what this dish is supposed to become.
+// `let`, not `const`, and the refresh guards on it. newDish runs during
+// bootstrap and calls refreshBrief, which is hoisted — a const here is in the
+// temporal dead zone at that moment and throws. Second time this exact shape has
+// bitten in this file.
+briefEl = document.createElement('div');
+briefEl.style.cssText = 'position:fixed;top:calc(34px + env(safe-area-inset-top,0px));left:12px;' +
+  'z-index:15;pointer-events:none;font:400 11px/1.5 ui-monospace,Menlo,Consolas,monospace;' +
+  'color:#8ea6c4;text-shadow:0 1px 3px rgba(0,0,0,.9);letter-spacing:.03em;';
+document.body.appendChild(briefEl);
+function refreshBrief() {
+  if (!briefEl) return;
+  const c = session?.character;
+  // The texture brief was reverted; this line is left wired but silent so the
+  // slot exists for whatever replaces it.
+  briefEl.textContent = '';
+}
+refreshBrief();
 
 // ---------------------------------------------------------------------------
 // Diagnostics — the evidence pipeline everything in this repo rests on.

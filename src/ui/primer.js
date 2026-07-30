@@ -48,7 +48,7 @@ const CSS = `
 
 const LINES = [
   'A culture is growing in the dish. It grows on its own, and it is <b>slow</b> — an action takes most of a minute to show.',
-  'Your job is to shape it into the <b>scribed outline</b>. Hold a finger on the dish to use the selected tool.',
+  'Your job is to fill the <b>scribed outline</b>. Hold a finger on the dish to use the selected tool.',
   '<b>grow</b> spreads it. <b>shrink</b> pulls it back. Between them you can steer it.',
   'The last two tools <b>tell you what is really happening</b> in a patch — and <span class="warn">destroy that patch</span> doing it.',
   'You are scored twice: how close the shape came, and <b>how much of the culture you spent finding out</b>.',
